@@ -1,0 +1,115 @@
+#!/bin/bash
+# p100-fand - drive the two P100 cooling fans from GPU temperature.
+# Only touches the channels listed in CHANNELS; every other fan stays on the
+# motherboard's own Smart Fan curve.
+set -u
+
+CONF=/etc/p100-fand.conf
+# shellcheck disable=SC1090
+[ -r "$CONF" ] && . "$CONF"
+
+: "${CHANNELS:=1 4}"
+: "${POLL:=5}"
+: "${MIN_PCT:=20}"
+: "${T_LOW:=45}"
+: "${T_HIGH:=80}"
+: "${RAWMAP:=1}"          # 1 = pwm 0..255, 0 = pwm 0..100 (some chips)
+HW=""
+
+log() { logger -t p100-fand -- "$*"; echo "$*"; }
+
+find_hw() {
+    local d
+    for d in /sys/class/hwmon/hwmon*; do
+        [ "$(cat "$d/name" 2>/dev/null)" = "nct6798" ] && { HW="$d"; return 0; }
+    done
+    return 1
+}
+
+# Highest temperature among the Tesla cards. Falls back to nouveau hwmon
+# (which cannot tell the cards apart) until the NVIDIA driver is installed.
+gpu_max_temp() {
+    local max="" name temp v d
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        while IFS=, read -r name temp; do
+            name=$(printf '%s' "$name" | tr -d ' ')
+            temp=$(printf '%s' "$temp" | tr -d ' ')
+            case "$name" in
+                *P100*|*P40*|*Tesla*|*V100*)
+                    [ -n "$temp" ] && max=$(printf '%s\n%s\n' "$max" "$temp" | sort -n | tail -1)
+                    ;;
+            esac
+        done < <(nvidia-smi --query-gpu=name,temperature.gpu --format=csv,noheader,nounits 2>/dev/null)
+    fi
+    if [ -z "$max" ]; then
+        for d in /sys/class/hwmon/hwmon*; do
+            [ "$(cat "$d/name" 2>/dev/null)" = "nouveau" ] || continue
+            v=$(cat "$d/temp1_input" 2>/dev/null) || continue
+            v=$((v / 1000))
+            max=$(printf '%s\n%s\n' "$max" "$v" | sort -n | tail -1)
+        done
+    fi
+    printf '%s' "$max"
+}
+
+pct_for() {
+    local t="$1" p
+    if [ "$t" -le "$T_LOW" ]; then
+        p=$MIN_PCT
+    elif [ "$t" -ge "$T_HIGH" ]; then
+        p=100
+    else
+        p=$(( MIN_PCT + (t - T_LOW) * (100 - MIN_PCT) / (T_HIGH - T_LOW) ))
+    fi
+    printf '%s' "$p"
+}
+
+apply() {
+    local pct="$1" raw ch
+    if [ "$RAWMAP" = "1" ]; then raw=$(( pct * 255 / 100 )); else raw=$pct; fi
+    for ch in $CHANNELS; do
+        [ -w "$HW/pwm$ch" ] || { log "pwm$ch not writable"; continue; }
+        printf '%s' 1     > "$HW/pwm${ch}_enable" 2>/dev/null
+        printf '%s' "$raw" > "$HW/pwm$ch" 2>/dev/null
+    done
+}
+
+once() {
+    find_hw || { log "nct6798 hwmon not found"; return 1; }
+    local t pct
+    t="${P100_TEST_TEMP:-$(gpu_max_temp)}"
+    [ -n "$t" ] || { log "no GPU temperature readable"; return 1; }
+    pct=$(pct_for "$t")
+    printf 'hwmon=%s gpu=%sC -> %s%% (raw %s)\n' "$HW" "$t" "$pct" "$(( pct * 255 / 100 ))"
+    for ch in $CHANNELS; do
+        printf '  pwm%s now=%s enable=%s  fan=%s RPM\n' "$ch" \
+            "$(cat "$HW/pwm$ch" 2>/dev/null)" "$(cat "$HW/pwm${ch}_enable" 2>/dev/null)" \
+            "$(cat "$HW/fan${ch}_input" 2>/dev/null)"
+    done
+}
+
+if [ "${1:-}" = "--once" ]; then
+    once
+    exit $?
+fi
+
+find_hw || { log "nct6798 hwmon not found, retrying"; }
+last=-1
+while :; do
+    if [ -z "$HW" ] || [ ! -d "$HW" ]; then find_hw || { sleep 10; continue; }; fi
+    t=$(gpu_max_temp)
+    if [ -z "$t" ]; then
+        apply 100
+        [ "$last" != "100" ] && log "no GPU temp readable -> forcing 100% (fail-safe)"
+        last=100
+        sleep "$POLL"
+        continue
+    fi
+    pct=$(pct_for "$t")
+    apply "$pct"
+    if [ "$last" -lt 0 ] || [ "$((pct - last))" -ge 3 ] || [ "$((last - pct))" -ge 3 ]; then
+        log "gpu=${t}C pwm=${pct}%"
+        last=$pct
+    fi
+    sleep "$POLL"
+done

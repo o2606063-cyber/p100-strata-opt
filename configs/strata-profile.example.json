@@ -1,0 +1,42 @@
+{
+  "_comment": "Template. Replace /PATH/TO/... with your paths. 'exe' must point at YOUR build with sm_60 - the release engine has no Pascal code. Start with: strata serve --profile this-file --host 0.0.0.0 --port 8080",
+  "exe": "/PATH/TO/src/Strata-0.2.8/build-cuda12/strata",
+  "args": [
+    "--pack", "/PATH/TO/packs/q2_0",
+    "--native", "/PATH/TO/models/qwen38-q2_0-q8dense/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf",
+    "--ple-gguf", "/PATH/TO/models/qwen38-q2_0-q8dense/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf",
+    "--expert-profile", "/PATH/TO/.local/share/strata/terminal/0.1.54/data/expert-profile.bin",
+    "--expert-cache", "auto",
+    "--spec", "4",
+    "--spec-min-p", "0.5",
+    "--mtp", "/PATH/TO/mtp/rt",
+    "--max-context", "131072",
+    "--resident-experts",
+    "--prefill", "8192",
+    "--kv", "int8",
+    "--vram-reserve-later-mib", "1033",
+    "--vision"
+  ],
+  "cwd": "/PATH/TO/.local/share/strata/terminal/0.1.54",
+  "tokenizer": "/PATH/TO/packs/q2_0/tokenizer",
+  "model_name": "qwen3.8-flash-next-q2_0",
+  "log": "/PATH/TO/profiles/q2_0-engine.log",
+  "lib_dirs": [],
+  "port": 8080,
+  "cuda": 12,
+  "gpu": [1, 2],
+  "gpus_asked": true,
+  "layer_split": "auto",
+  "host": "0.0.0.0",
+  "reasoning_effort": "low",
+  "vision": {
+    "exe": "/PATH/TO/.local/share/strata/components/engine/<version>-linux-x86_64-cuda-cuda13/strata-vision",
+    "mmproj": "/PATH/TO/models/qwen38-q2_0-q8dense/mmproj-Qwen3.8-Flash-Next-BF16.gguf",
+    "model": "/PATH/TO/models/qwen38-q2_0-q8dense/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf",
+    "gpu": false,
+    "max_tokens": 300
+  },
+  "env": {
+    "STRATA_Q8_SM60": "1"
+  }
+}

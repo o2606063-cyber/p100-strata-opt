@@ -1,0 +1,12 @@
+*.log
+*.gguf
+*.pack
+*.safetensors
+build*/
+__pycache__/
+*.bak
+*.bak-*
+
+# release assets are uploaded to GitHub Releases, not committed (100 MB file limit)
+release/*.tar.gz
+release/*.zip

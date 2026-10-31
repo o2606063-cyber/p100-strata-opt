@@ -1,0 +1,33 @@
+# DSH (DeepSeek Harness) provider example for a local Strata server.
+# Goes in ~/.dsh/profiles/<profile>/cordis.patch.yml
+#
+# Three things bit us here:
+#  1. the field for image input is "input", not "inputModalities" (that one is the
+#     first-party DeepSeek adapter's field) - without it DSH refuses images with
+#     'model "..." does not declare image input';
+#  2. DSH hides a provider whose apiKeyEnv is not configured, so a value must exist in
+#     ~/.dsh/.credentials.yaml under refs: (any non-empty string - Strata ignores auth
+#     unless you set an API key);
+#  3. contextWindow must match the server's --max-context, or DSH compacts early.
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      qwen-p100:
+        apiKeyEnv: QWEN_API_KEY
+        api: openai-completions
+        baseURL: http://192.168.1.127:8080/v1
+        models:
+          - id: qwen3.8-flash-next-q2_0
+            name: Qwen3.8-Flash-Next Q2_0 (2x P100)
+            contextWindow: 131072
+            maxTokens: 32768
+            input: [text, image]
+            reasoningEfforts:
+              "off": none
+              low: low
+              medium: medium
+              high: high
+            compat:
+              supportsReasoningEffort: true
+              maxTokensField: max_tokens
