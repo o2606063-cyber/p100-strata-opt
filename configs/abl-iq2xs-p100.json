@@ -1,0 +1,60 @@
+{
+  "_comment": "Final tuned profile: Qwen3.8-Flash-Next IQ2_XS on 2x Tesla P100 (sm_60), 256K context. Measured 68.1 tok/s on code generation. Replace the absolute paths with your own. See docs/TUNING.md for why each flag is here.",
+
+  "exe": "/home/yu/src/Strata-0.2.8/build-cuda12/strata",
+  "cwd": "/home/yu/.local/share/strata/terminal/0.1.54",
+
+  "args": [
+    "--pack", "/home/yu/packs/iq2_xs",
+    "--native", "/home/yu/models/qwen38-abliterated-iq2xs/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf",
+    "--ple-gguf", "/home/yu/models/qwen38-abliterated-iq2xs/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00002-of-00002.gguf",
+    "--expert-profile", "/home/yu/.local/share/strata/terminal/0.1.54/data/expert-profile.bin",
+
+    "--expert-cache", "auto",
+    "--max-context", "262144",
+    "--resident-experts",
+
+    "--spec", "4",
+    "--spec-min-p", "0.65",
+    "--suffix-draft", "0",
+    "--mtp", "/home/yu/mtp/lamina",
+
+    "--kv", "int8",
+    "--kv-resident", "32768",
+
+    "--pipeline-windows", "4",
+
+    "--prefill", "auto",
+    "--vision"
+  ],
+
+  "env": {
+    "STRATA_Q8_SM60": "1",
+    "STRATA_HC_Q8": "1"
+  },
+
+  "tokenizer": "/home/yu/packs/iq2_xs/tokenizer",
+  "model_name": "qwen3.8-flash-next-iq2_xs",
+  "log": "/home/yu/profiles/abl_iq2xs-engine.log",
+
+  "port": 8080,
+  "host": "0.0.0.0",
+  "cuda": 12,
+  "gpu": [1, 2],
+  "gpus_asked": true,
+  "layer_split": "auto",
+  "lib_dirs": [],
+
+  "vision": {
+    "_comment": "Runs on the CPU: ~3.4 s per image, keeps the P100 VRAM for experts.",
+    "exe": "/home/yu/.local/share/strata/components/engine/0.1.54-linux-x86_64-cuda-cuda13/strata-vision",
+    "mmproj": "/home/yu/models/mmproj-Qwen3.8-Flash-Next-BF16.gguf",
+    "model": "/home/yu/models/qwen38-abliterated-iq2xs/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ2_XS-00001-of-00002.gguf",
+    "gpu": false,
+    "max_tokens": 300,
+    "threads": 8
+  },
+
+  "allowed_hosts": ["debian", "debian.lan"],
+  "open_browser": false
+}

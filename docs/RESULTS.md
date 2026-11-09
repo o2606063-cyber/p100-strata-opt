@@ -1,7 +1,24 @@
-# Measurements — 2× Tesla P100 16 GB, Qwen3.8-Flash-Next Q2_0
+# Measurements — 2× Tesla P100 16 GB, Qwen3.8-Flash-Next
 
 All numbers engine-reported (`done: N tokens in T s (X tok/s)`), temperature 0, same box,
 same weights. "code" = a 600-token Python generation; "prose" = a short explanation.
+
+> **Read [`TUNING.md`](TUNING.md) first.** This file is the earlier Q2_0 / 128K round of
+> measurements. Two entries below were later **overturned** and are corrected here:
+> `--pipeline-windows` (it is worth +23–26 %, not "no gain" — the original test used `N=2`
+> and the pre-`--kv-resident` config) and the 256K context penalty (it disappears once KV is
+> streamed with `--kv-resident`, because the freed VRAM goes back to the expert cache).
+>
+> Final tuned result on the IQ2_XS pack at 256K: **68.1 tok/s** on code, 255 tok/s prefill.
+
+## The correction, up front
+
+| item | this file (Q2_0, 128K, 2026-11-08) | later (IQ2_XS, 256K, 2026-11-09) |
+|---|---|---|
+| `--pipeline-windows` | "54.1 vs 55.1, no gain" ← **wrong** | `4` → **+23–26 %** |
+| 256K context | "−12 %, a trap" | with `--kv-resident 32768`: **−2 %, keep 256K** |
+| decode (code, 600 tok) | 59.8 | **68.1** |
+| prefill (random 1.5K) | 191 | **255** |
 
 ## Decode depends on the workload, not the hardware
 
@@ -50,7 +67,7 @@ predictable. Any single "tok/s" number without the workload is meaningless.
 |---|---|---|
 | 3rd GPU (RTX 3050 8 GB) | 38.9 vs 42.0 | pipeline stage; 8 GB minus dense+KV+4.24 GiB prompt buffers leaves ~4 % of the experts, so it is the slowest stage |
 | `--kv q4_0` | 39.1 vs 42.0 | Hadamard rotation costs more than the VRAM saved |
-| `--pipeline-windows 2` | 54.1 vs 55.1 | opt-in, no gain on a 2-stage NVIDIA split |
+| `--pipeline-windows 2` | 54.1 vs 55.1 | ~~no gain~~ — **superseded**: `4` is worth +23–26 % once `--kv-resident` is also set (see [TUNING.md](TUNING.md)) |
 | `--pcie-frac 0` | 40.5 vs 41.3 | auto (0.09 at 3.3 GB/s) is right |
 | `--spec 6` | 49.7 vs 55.8 | deeper drafts cost more than the accepts |
 | DFlash2 | 55.3 / 54.8 / 56.6 vs MTP 53.9 / 56.5 / 56.9 | no gain; Strata's own table says Ampere/Pascal lose |
